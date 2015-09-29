@@ -1085,10 +1085,14 @@ hooked_PyEval_EvalFrameEx(PyFrameObject *f, int throwflag)
 	PyObject *watchtargets = PyDict_GetItemString(dict, "watchtargets"); \
     if (!PyErr_Occurred() && watchtargets && PyMapping_Check(watchtargets)) { \
         PyObject *id, *func, *res; \
+		Py_INCREF(watchtargets); \
+		PyDict_SetItemString(dict, "watchtargets", Py_None); \
         id = PyLong_FromVoidPtr(obj); \
         func = PyObject_GetItem(watchtargets, id); \
         Py_DECREF(id); \
         if (!func) { \
+			PyDict_SetItemString(dict, "watchtargets", watchtargets); \
+			Py_DECREF(watchtargets); \
             if (PyErr_ExceptionMatches(PyExc_KeyError)) { \
                 PyErr_Clear(); \
                 _PUSH(obj); \
@@ -1096,8 +1100,6 @@ hooked_PyEval_EvalFrameEx(PyFrameObject *f, int throwflag)
                 goto error; \
             } \
         } else { \
-			Py_INCREF(watchtargets); \
-			PyDict_SetItemString(dict, "watchtargets", Py_None); \
             res = PyObject_CallObject(func, PyTuple_Pack(2, f, obj)); \
 			PyDict_SetItemString(dict, "watchtargets", watchtargets); \
 			Py_DECREF(watchtargets); \
