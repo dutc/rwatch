@@ -1,5 +1,10 @@
 #!/usr/bin/env python3
 
+from sys import version_info, exit
+
+if version_info.major < 3 or version_info.minor < 5:
+    exit('Sorry, Python 3.5 or above only')
+
 try:
     from sys import setrwatch, getrwatch
 except ImportError:
@@ -7,7 +12,7 @@ except ImportError:
         import rwatch
         from sys import setrwatch, getrwatch
     except ImportError:
-        from sys import exit; exit('http://')
+        exit('http://github.com/dutc/rwatch or `pip install dutc-rwatch`')
 
 ############ Wouldn't this be (very!) useful for debugging? ############
 
