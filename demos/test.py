@@ -117,11 +117,38 @@ def indirection_demo():
     x_(z)
     print(x)
 
+########## By the way, the mapping is mutable ##########
+
+def mutable_demo(x='some data', y='other data'):
+    def view(frame, obj):
+        print('Saw access to {!r}'.format(obj))
+        return obj
+
+    watches = {id(x): view}
+    setrwatch(watches)
+    x
+    watches[id(y)] = view
+    y
+
+    class Predicate(dict):
+        def dispatch(self, frame, obj):
+            for pred, func in self.items():
+                if pred(obj):
+                    func(frame, obj)
+        def __getitem__(self, _):
+            return self.dispatch
+
+    from collections.abc import Sized
+    watches = Predicate({lambda o: isinstance(o, Sized) and len(o) > 9: view})
+    setrwatch(watches)
+    x, y
+
 if __name__ == '__main__':
     debug_demo()
     sandbox_demo()
     defer_demo()
     indirection_demo()
+    mutable_demo()
 
 # Interestingly, the above shows the equivalent between the provision
 #   of a perfect proxy object (wherein Proxy(x) is in all ways
