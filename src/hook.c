@@ -2,21 +2,31 @@
 #include <sys/mman.h>
 #include <unistd.h>
 #include <string.h>
-
+#include <stdint.h>
 #include "hook.h"
 
-/* TODO: make less ugly! 
- *       there's got to be a nicer way to do this! */
+/*
+jump to 64 bit address by using following logic:
+    pushq low32 bits (as 64bit value) of patched function
+    movl high32 bits of patched function (fill in missing 4 bytes of previously pushed value), 0x4(%rsp)
+    retq
+as there is no way to do following on x86_64:
+    1. jump to absolute 64bit address directly
+    2. push 64bit immediate value to perform ret right after to emulate jmp
+No state maintainence has to be done. No registers saving/restoring etc...
+*/
 #pragma pack(push, 1)
-static struct { 
-	char push_rax; 
-	char mov_rax[2];
-	char addr[8];
-	char jmp_rax[2]; } 
-jump_asm = {
-	.push_rax = 0x50,
-	.mov_rax  = {0x48, 0xb8},
-	.jmp_rax  = {0xff, 0xe0} };
+static struct {
+    uint8_t pushq;
+    uint32_t low32;
+    uint32_t movl;
+    uint32_t high32;
+    uint8_t retq;
+} patch = {
+    .pushq = 0x68,
+    .movl = 0x042444C7,  // x86 little-endian
+    .retq = 0xC3
+};
 #pragma pack(pop)
 
 static int unprotect_page(void* addr) {
@@ -39,25 +49,11 @@ int hook_function(void* target, void* replace) {
 		return 1;
 	}
 
-	/* find the NOP */
-	for(count = 0; count < 255 && ((unsigned char*)replace)[count] != 0x90; ++count);
-
-	if(count == 255) {
-		fprintf(stderr, "Couldn't find the NOP.\n");
-		return 1;
-	}
-
-	/* shift everything down one */
-	memmove(replace+1, replace, count);
-
-	/* add in `pop %rax` */
-	*((unsigned char *)replace) = 0x58;
-
-	/* set up the address */
-	memcpy(jump_asm.addr, &replace, sizeof (void *));
+	patch.low32 = (uintptr_t)replace & 0xFFFFFFFF;
+	patch.high32 = ((uintptr_t)replace >> 32) & 0xFFFFFFFF;
 
 	/* smash the target function */
-	memcpy(target, &jump_asm, sizeof jump_asm);
+	memcpy(target, &patch, sizeof patch);
 
 	return 0;
 }
