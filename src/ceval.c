@@ -796,7 +796,6 @@ PyEval_EvalFrame(PyFrameObject *f) {
 PyObject *
 hooked_PyEval_EvalFrameEx(PyFrameObject *f, int throwflag)
 {
-	__asm__("nop");
 #ifdef DXPAIRS
     int lastopcode = 0;
 #endif
